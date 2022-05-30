@@ -16,7 +16,7 @@ fn main() {
 }
 
 fn get_puzzle_answer(nodes: &Vec<Node>) -> usize {
-
+    0
 }
 
 fn nodes_from_edges(edges: &Vec<Vec<usize>>) -> Vec<Node> {
