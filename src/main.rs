@@ -2,44 +2,56 @@ use std::io;
 
 struct Node {
     prev_nodes: Vec<usize>,
-    next_nodes: Vec<usize>
+    next_nodes: Vec<usize>,
+    cached_max_trimmed_depth: Option<usize>
 }
 
 impl Node {
     fn new() -> Node {
-        Node { prev_nodes: vec![], next_nodes: vec![] }
+        Node { 
+            prev_nodes: vec![], 
+            next_nodes: vec![],
+            cached_max_trimmed_depth: None
+        }
     }
 }
 
 fn main() {
     let edges  = parse_input_into_edges(io::BufReader::new(io::stdin()));
-    let nodes  = nodes_from_edges(&edges);
-    let answer = get_puzzle_answer(&nodes);
+    let mut nodes  = nodes_from_edges(&edges);
+    let answer = get_puzzle_answer(&mut nodes);
     println!("{}", answer);
 }
 
-fn get_puzzle_answer(nodes: &Vec<Node>) -> usize {
-    nodes.iter()
+fn get_puzzle_answer(nodes: &mut Vec<Node>) -> usize {
+    (unsafe {&mut *(nodes as *mut Vec<Node>)}).iter()
         .enumerate() 
-        .filter(|(_, node)| node.next_nodes.len() == 0)
-        .map(|(i, _)| max_trimmed_depth(nodes, i))
+        .map(|(i, _)| max_trimmed_depth(unsafe {&mut *(nodes as *mut Vec<Node>)}, i))
         .max()
         .unwrap()
 }
 
-fn max_trimmed_depth(nodes: &Vec<Node>, n: usize) -> usize {
-    let this_node = &nodes[n];
+fn max_trimmed_depth(nodes: &mut Vec<Node>, n: usize) -> usize { 
+    if let Some(depth) = nodes[n].cached_max_trimmed_depth {
+        return depth;
+    }
     
-    if this_node.prev_nodes.len() <= 1 {
+    if nodes[n].prev_nodes.len() <= 1 {
         return 1;
     }
 
-    this_node.prev_nodes.iter()
+    let sneeky_nodes_ptr = nodes as *mut Vec<Node>;
+    let depth = (unsafe {&mut *sneeky_nodes_ptr})[n].prev_nodes.iter()
         .map(|&i| (i, &nodes[i]))
         .filter(|(_, prev_node)| prev_node.next_nodes.len() > 1)
-        .map(|(i, _)| max_trimmed_depth(&nodes, i))
+        .map(|(i, _)| max_trimmed_depth(unsafe {&mut *sneeky_nodes_ptr}, i))
+        .chain([0])
         .max()
-        .unwrap() + 1
+        .unwrap() + 1;
+    
+    nodes[n].cached_max_trimmed_depth = Some(depth);
+    
+    depth
 }
 
 fn nodes_from_edges(edges: &Vec<Vec<usize>>) -> Vec<Node> {
@@ -120,22 +132,22 @@ fn test_nodes_from_edges() {
 fn test_puzzle_solution_1() {
     let mut input_stream = io::Cursor::new(include_str!("../test_input_1.txt"));
     let edges = parse_input_into_edges(&mut input_stream);
-    let nodes = nodes_from_edges(&edges);
-    assert_eq!(get_puzzle_answer(&nodes), 2);
+    let mut nodes = nodes_from_edges(&edges);
+    assert_eq!(get_puzzle_answer(&mut nodes), 2);
 }
 
 #[test]
 fn test_puzzle_solution_2() {
     let mut input_stream = io::Cursor::new(include_str!("../test_input_2.txt"));
     let edges = parse_input_into_edges(&mut input_stream);
-    let nodes = nodes_from_edges(&edges);
-    assert_eq!(get_puzzle_answer(&nodes), 1);
+    let mut nodes = nodes_from_edges(&edges);
+    assert_eq!(get_puzzle_answer(&mut nodes), 1);
 }
 
 #[test]
 fn test_puzzle_solution_3() {
     let mut input_stream = io::Cursor::new(include_str!("../test_input_3.txt"));
     let edges = parse_input_into_edges(&mut input_stream);
-    let nodes = nodes_from_edges(&edges);
-    assert_eq!(get_puzzle_answer(&nodes), 3);
+    let mut nodes = nodes_from_edges(&edges);
+    assert_eq!(get_puzzle_answer(&mut nodes), 3);
 }
